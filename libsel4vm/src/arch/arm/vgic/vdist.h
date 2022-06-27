@@ -162,24 +162,27 @@ static int vgic_dist_disable(vgic_t *vgic, vm_t *vm)
     return 0;
 }
 
-static void vgic_dist_enable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
+static int vgic_dist_enable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 {
     assert(vgic);
     assert(vgic->dist);
     DDIST("enabling irq %d\n", irq);
     set_enable(vgic->dist, irq, true, vcpu->vcpu_id);
     struct virq_handle *virq_data = virq_find_irq_data(vgic, vcpu, irq);
-    if (virq_data) {
-        /* STATE b) */
-        if (!is_pending(vgic->dist, virq_data->virq, vcpu->vcpu_id)) {
-            virq_ack(vcpu, virq_data);
-        }
-    } else {
+    if (!virq_data) {
         DDIST("enabled irq %d has no handle\n", irq);
+        return -1;
     }
+
+    /* STATE b) */
+    if (!is_pending(vgic->dist, virq_data->virq, vcpu->vcpu_id)) {
+        virq_ack(vcpu, virq_data);
+    }
+
+    return 0;
 }
 
-static void vgic_dist_disable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
+static int vgic_dist_disable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 {
     assert(vgic);
     assert(vgic->dist);
@@ -196,6 +199,9 @@ static void vgic_dist_disable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
         DDIST("disabling irq %d\n", irq);
         set_enable(vgic->dist, irq, false, vcpu->vcpu_id);
     }
+
+    /* this never fails, but we must use the proper function signature */
+    return 0;
 }
 
 static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
@@ -213,7 +219,7 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
     }
 
     if (is_pending(vgic->dist, virq_data->virq, vcpu->vcpu_id)) {
-        return 0;
+        return 0; /* already pending */
     }
 
     DDIST("Pending set: Inject IRQ from pending set (%d)\n", irq);
@@ -234,13 +240,19 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
          * deal -- we have already enqueued this IRQ and eventually the vGIC
          * maintenance code will load it to a list register from the queue.
          */
-        return 0;
+        return -1;
     }
 
     struct virq_handle *virq = vgic_irq_dequeue(vgic, vcpu);
     assert(virq);
 
-    return vgic_vcpu_load_list_reg(vgic, vcpu, idx, 0, virq);
+    err = vgic_vcpu_load_list_reg(vgic, vcpu, idx, 0, virq);
+    if (err) {
+        ZF_LOGF("Failure loading intr from list");
+        return -1;
+    }
+
+    return 0;
 }
 
 static int vgic_dist_clr_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
@@ -251,6 +263,8 @@ static int vgic_dist_clr_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
     DDIST("clr pending irq %d\n", irq);
     set_pending(vgic->dist, irq, false, vcpu->vcpu_id);
     /* TODO: remove from IRQ queue and list registers as well */
+
+    /* this never fails, but we must use the proper function signature */
     return 0;
 }
 
@@ -411,6 +425,28 @@ static inline void emulate_reg_write_access(uint32_t *vreg, fault_t *fault)
     *vreg = fault_emulate(fault, *vreg);
 }
 
+typedef int (*irq_func_t)(vgic_t *vgic, vm_vcpu_t *vcpu, int irq);
+
+static inline void emulate_reg_write_irq_bits(vgic_t *vgic, vm_vcpu_t *vcpu,
+                                                seL4_Word offset, seL4_Word base,
+                                                irq_func_t irq_func)
+{
+    assert(irq_func);
+    assert(offset >= base);
+
+    unsigned int irq_base = (offset - base) * 8;
+    fault_t *fault = vcpu->vcpu_arch.fault;
+    uint32_t data = fault_get_data(fault) & fault_get_data_mask(fault);
+
+    while (data) {
+        unsigned int bit = CTZ(data);
+        data &= ~(1U << bit);
+        int irq = irq_base + bit;
+        /* ignore error, there is nothing we can do */
+        (void)irq_func(vgic, vcpu, irq);
+    }
+}
+
 static memory_fault_result_t vgic_dist_reg_write(vm_t *vm, vm_vcpu_t *vcpu,
                                                  vgic_t *vgic, seL4_Word offset)
 {
@@ -454,52 +490,20 @@ static memory_fault_result_t vgic_dist_reg_write(vm_t *vm, vm_vcpu_t *vcpu,
         emulate_reg_write_access(&gic_dist->irq_group[reg_offset], fault);
         break;
     case RANGE32(GIC_DIST_ISENABLER0, GIC_DIST_ISENABLERN):
-        data = fault_get_data(fault);
-        /* Mask the data to write */
-        data &= mask;
-        while (data) {
-            int irq;
-            irq = CTZ(data);
-            data &= ~(1U << irq);
-            irq += (offset - GIC_DIST_ISENABLER0) * 8;
-            vgic_dist_enable_irq(vgic, vcpu, irq);
-        }
+        emulate_reg_write_irq_bits(vgic, vcpu, offset, GIC_DIST_ISENABLER0,
+                                   vgic_dist_enable_irq);
         break;
     case RANGE32(GIC_DIST_ICENABLER0, GIC_DIST_ICENABLERN):
-        data = fault_get_data(fault);
-        /* Mask the data to write */
-        data &= mask;
-        while (data) {
-            int irq;
-            irq = CTZ(data);
-            data &= ~(1U << irq);
-            irq += (offset - GIC_DIST_ICENABLER0) * 8;
-            vgic_dist_disable_irq(vgic, vcpu, irq);
-        }
+        emulate_reg_write_irq_bits(vgic, vcpu, offset, GIC_DIST_ICENABLER0,
+                                   vgic_dist_disable_irq);
         break;
     case RANGE32(GIC_DIST_ISPENDR0, GIC_DIST_ISPENDRN):
-        data = fault_get_data(fault);
-        /* Mask the data to write */
-        data &= mask;
-        while (data) {
-            int irq;
-            irq = CTZ(data);
-            data &= ~(1U << irq);
-            irq += (offset - GIC_DIST_ISPENDR0) * 8;
-            vgic_dist_set_pending_irq(vgic, vcpu, irq);
-        }
+        emulate_reg_write_irq_bits(vgic, vcpu, offset, GIC_DIST_ISPENDR0,
+                                   vgic_dist_set_pending_irq);
         break;
     case RANGE32(GIC_DIST_ICPENDR0, GIC_DIST_ICPENDRN):
-        data = fault_get_data(fault);
-        /* Mask the data to write */
-        data &= mask;
-        while (data) {
-            int irq;
-            irq = CTZ(data);
-            data &= ~(1U << irq);
-            irq += (offset - GIC_DIST_ICPENDR0) * 8;
-            vgic_dist_clr_pending_irq(vgic, vcpu, irq);
-        }
+        emulate_reg_write_irq_bits(vgic, vcpu, offset, GIC_DIST_ICPENDR0,
+                                   vgic_dist_clr_pending_irq);
         break;
     case RANGE32(GIC_DIST_ISACTIVER0, GIC_DIST_ISACTIVER0):
         emulate_reg_write_access(&gic_dist->active0[vcpu->vcpu_id], fault);
