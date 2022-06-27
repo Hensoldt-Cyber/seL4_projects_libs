@@ -84,7 +84,7 @@ int handle_vgic_maintenance(vm_vcpu_t *vcpu, int idx)
     virq_handle_t lr_virq = *slot;
     *slot = NULL;
     /* Clear pending */
-    DIRQ("Maintenance IRQ %d\n", lr_virq->virq);
+    DIRQ("Maintenance IRQ %d", lr_virq->virq);
     set_pending(gic_dist, lr_virq->virq, false, vcpu->vcpu_id);
     virq_ack(vcpu, lr_virq);
 
@@ -181,7 +181,7 @@ int vm_inject_irq(vm_vcpu_t *vcpu, int irq)
     struct vgic *vgic = vgic_dist->vgic;
     assert(vgic);
 
-    DIRQ("VM received IRQ %d\n", irq);
+    DIRQ("VM received IRQ %d", irq);
 
     int err = vgic_dist_set_pending_irq(vgic, vcpu, irq);
 
