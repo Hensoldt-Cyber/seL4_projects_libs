@@ -359,10 +359,15 @@ static memory_fault_result_t vgic_dist_reg_read(vm_t *vm, vm_vcpu_t *vcpu,
         reg_offset = GIC_DIST_REGN(offset, GIC_DIST_ICFGR0);
         reg = gic_dist->config[reg_offset];
         break;
-    case RANGE32(0xD00, 0xDE4):
-        base_reg = (uintptr_t) & (gic_dist->spi[0]);
-        reg_ptr = (uint32_t *)(base_reg + (offset - 0xD00));
-        reg = *reg_ptr;
+    case RANGE32(0xD80, 0xDE4):
+        /* spi[32]      0xD00 - 0xD80 */
+        /* res5[20]     0xD80 - 0xDD0 */
+        /* res6         0xDD0 */
+        /* legacy_int   0xDD4 */
+        /* res7[2]      0xDD8 - 0xDE0 */
+        /* match_d      0xDE0 */
+        /* enable_d     0xDE4 */
+        reg = ((uint32_t*)gic_dist)[offset / sizeof(uint32_t)];
         break;
     case RANGE32(0xDE8, 0xEFC):
         /* Reserved [0xDE8 - 0xE00) */
@@ -386,9 +391,9 @@ static memory_fault_result_t vgic_dist_reg_read(vm_t *vm, vm_vcpu_t *vcpu,
         /* Reserved */
         break;
     case RANGE32(0xFC0, 0xFFB):
-        base_reg = (uintptr_t) & (gic_dist->periph_id[0]);
-        reg_ptr = (uint32_t *)(base_reg + (offset - 0xFC0));
-        reg = *reg_ptr;
+        /* periph_id[12]    0xFC0 - 0xFF0 */
+        /* component_id[4]  0xFF0 - 0xFFF */
+        reg = ((uint32_t*)gic_dist)[offset / sizeof(uint32_t)];
         break;
     default:
         ZF_LOGE("Unknown register offset 0x%x", offset);
