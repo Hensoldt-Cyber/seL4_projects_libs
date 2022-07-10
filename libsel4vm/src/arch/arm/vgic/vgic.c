@@ -235,6 +235,23 @@ static vgic_vcpu_t *get_vgic_vcpu(vgic_t *vgic, int vcpu_id)
     return &(vgic->vgic_vcpu[vcpu_id]);
 }
 
+static void vgic_dist_set_ctlr(vgic_t *vgic, uint32_t data)
+{
+    switch (data) {
+    case 0:
+        DDIST("disabling gic distributor\n");
+        vgic->dist->enable = 0;
+        break;
+    case 1:
+        DDIST("enabling gic distributor\n");
+        vgic->dist->enable = 1;
+        break;
+    default:
+        ZF_LOGE("Unknown dist ctlr encoding 0x%x", data);
+        break;
+    }
+}
+
 static struct virq_handle *virq_get_sgi_ppi(vgic_t *vgic, vm_vcpu_t *vcpu, int virq)
 {
     vgic_vcpu_t *vgic_vcpu = get_vgic_vcpu(vgic, vcpu->vcpu_id);
@@ -523,24 +540,6 @@ int handle_vgic_maintenance(vm_vcpu_t *vcpu, int idx)
     return 0;
 }
 
-static int vgic_dist_enable(vgic_t *vgic, vm_t *vm)
-{
-    assert(vgic);
-    assert(vgic->dist);
-    DDIST("enabling gic distributor\n");
-    vgic->dist->enable = 1;
-    return 0;
-}
-
-static int vgic_dist_disable(vgic_t *vgic, vm_t *vm)
-{
-    assert(vgic);
-    assert(vgic->dist);
-    DDIST("disabling gic distributor\n");
-    vgic->dist->enable = 0;
-    return 0;
-}
-
 static void vgic_dist_enable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 {
     assert(vgic);
@@ -803,14 +802,7 @@ static memory_fault_result_t vgic_dist_reg_write(vm_t *vm, vm_vcpu_t *vcpu,
     uint32_t data;
     switch (offset) {
     case RANGE32(GIC_DIST_CTLR, GIC_DIST_CTLR):
-        data = fault_get_data(fault);
-        if (data == 1) {
-            vgic_dist_enable(vgic, vm);
-        } else if (data == 0) {
-            vgic_dist_disable(vgic, vm);
-        } else {
-            ZF_LOGE("Unknown enable register encoding");
-        }
+        vgic_dist_set_ctlr(vgic, fault_get_data(fault));
         break;
     case RANGE32(GIC_DIST_TYPER, GIC_DIST_TYPER):
         break;
