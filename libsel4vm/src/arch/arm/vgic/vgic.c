@@ -1138,6 +1138,7 @@ int vm_install_vgic(vm_t *vm)
 
     vgic->mapped_dist.paddr = GIC_DIST_PADDR;
     vgic->mapped_dist.size = PAGE_SIZE_4K;
+    ZF_LOGI("VM mapping at 0x%"PRIxPTR": vGIC distributor", vgic->mapped_dist.paddr);
     vgic->mapped_dist.vm_res = vm_reserve_memory_at(vm,
                                                     vgic->mapped_dist.paddr,
                                                     vgic->mapped_dist.size,
@@ -1147,11 +1148,13 @@ int vm_install_vgic(vm_t *vm)
     /* Remap VCPU to CPU */
     vgic->mapped_cpu_if.paddr = GIC_CPU_PADDR;
     vgic->mapped_cpu_if.size = PAGE_SIZE_4K;
+    ZF_LOGI("VM mapping at 0x%"PRIxPTR": vGIC CPU interface", vgic->mapped_cpu_if.paddr);
     vgic->mapped_cpu_if.vm_res = vm_reserve_memory_at(vm,
                                                       vgic->mapped_cpu_if.paddr,
                                                       vgic->mapped_cpu_if.size,
                                                       handle_vgic_vcpu_fault,
                                                       NULL);
+    ZF_LOGI("making GIC CPU interface acessible to VM");
     int err = vm_map_reservation(vm, vgic->mapped_cpu_if.vm_res,
                                  vgic_vcpu_iterator, (void *)vm);
     if (err) {
@@ -1160,6 +1163,7 @@ int vm_install_vgic(vm_t *vm)
     }
 
     vm->arch.vgic_context = vgic;
+    ZF_LOGI("vGIC installed into VM");
 
     return 0;
 }
