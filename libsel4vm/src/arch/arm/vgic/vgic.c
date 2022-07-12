@@ -227,7 +227,7 @@ typedef struct vgic {
     vm_mapping_t mapped_cpu_if;
     vm_mapping_t mapped_dist;
     /* virtual distributor registers */
-    struct gic_dist_map *dist;
+    struct gic_dist_map dist;
     /* registered global interrupts (SPI) */
     virq_handle_t vspis[NUM_SLOTS_SPI_VIRQ];
     /* vCPU specific interrupt context */
@@ -251,7 +251,7 @@ static vgic_vcpu_t *get_vgic_vcpu(vgic_t *vgic, int vcpu_id)
 
 static bool gic_dist_is_enabled(vgic_t *vgic)
 {
-    return (0 != vgic->dist->enable);
+    return (0 != vgic->dist.enable);
 }
 
 static void vgic_dist_set_ctlr(vgic_t *vgic, uint32_t data)
@@ -259,11 +259,11 @@ static void vgic_dist_set_ctlr(vgic_t *vgic, uint32_t data)
     switch (data) {
     case 0:
         DDIST("disabling gic distributor\n");
-        vgic->dist->enable = 0;
+        vgic->dist.enable = 0;
         break;
     case 1:
         DDIST("enabling gic distributor\n");
-        vgic->dist->enable = 1;
+        vgic->dist.enable = 1;
         break;
     default:
         ZF_LOGE("Unknown dist ctlr encoding 0x%x", data);
@@ -342,22 +342,22 @@ static inline void virq_init(virq_handle_t virq, int irq, irq_ack_fn_t ack_fn, v
 static inline void set_sgi_ppi_pending(vgic_t *vgic, int irq, bool set_pending, int vcpu_id)
 {
     if (set_pending) {
-        vgic->dist->pending_set0[vcpu_id] |= IRQ_BIT(irq);
-        vgic->dist->pending_clr0[vcpu_id] |= IRQ_BIT(irq);
+        vgic->dist.pending_set0[vcpu_id] |= IRQ_BIT(irq);
+        vgic->dist.pending_clr0[vcpu_id] |= IRQ_BIT(irq);
     } else {
-        vgic->dist->pending_set0[vcpu_id] &= ~IRQ_BIT(irq);
-        vgic->dist->pending_clr0[vcpu_id] &= ~IRQ_BIT(irq);
+        vgic->dist.pending_set0[vcpu_id] &= ~IRQ_BIT(irq);
+        vgic->dist.pending_clr0[vcpu_id] &= ~IRQ_BIT(irq);
     }
 }
 
 static inline void set_spi_pending(vgic_t *vgic, int irq, bool set_pending)
 {
     if (set_pending) {
-        vgic->dist->pending_set[IRQ_IDX(irq)] |= IRQ_BIT(irq);
-        vgic->dist->pending_clr[IRQ_IDX(irq)] |= IRQ_BIT(irq);
+        vgic->dist.pending_set[IRQ_IDX(irq)] |= IRQ_BIT(irq);
+        vgic->dist.pending_clr[IRQ_IDX(irq)] |= IRQ_BIT(irq);
     } else {
-        vgic->dist->pending_set[IRQ_IDX(irq)] &= ~IRQ_BIT(irq);
-        vgic->dist->pending_clr[IRQ_IDX(irq)] &= ~IRQ_BIT(irq);
+        vgic->dist.pending_set[IRQ_IDX(irq)] &= ~IRQ_BIT(irq);
+        vgic->dist.pending_clr[IRQ_IDX(irq)] &= ~IRQ_BIT(irq);
     }
 }
 
@@ -372,12 +372,12 @@ static inline void set_pending(vgic_t *vgic, int irq, bool set_pending, int vcpu
 
 static inline bool is_sgi_ppi_pending(vgic_t *vgic, int irq, int vcpu_id)
 {
-    return !!(vgic->dist->pending_set0[vcpu_id] & IRQ_BIT(irq));
+    return !!(vgic->dist.pending_set0[vcpu_id] & IRQ_BIT(irq));
 }
 
 static inline bool is_spi_pending(vgic_t *vgic, int irq)
 {
-    return !!(vgic->dist->pending_set[IRQ_IDX(irq)] & IRQ_BIT(irq));
+    return !!(vgic->dist.pending_set[IRQ_IDX(irq)] & IRQ_BIT(irq));
 }
 
 static inline bool is_pending(vgic_t *vgic, int irq, int vcpu_id)
@@ -392,22 +392,22 @@ static inline bool is_pending(vgic_t *vgic, int irq, int vcpu_id)
 static inline void set_sgi_ppi_enable(vgic_t *vgic, int irq, bool set_enable, int vcpu_id)
 {
     if (set_enable) {
-        vgic->dist->enable_set0[vcpu_id] |= IRQ_BIT(irq);
-        vgic->dist->enable_clr0[vcpu_id] |= IRQ_BIT(irq);
+        vgic->dist.enable_set0[vcpu_id] |= IRQ_BIT(irq);
+        vgic->dist.enable_clr0[vcpu_id] |= IRQ_BIT(irq);
     } else {
-        vgic->dist->enable_set0[vcpu_id] &= ~IRQ_BIT(irq);
-        vgic->dist->enable_clr0[vcpu_id] &= ~IRQ_BIT(irq);
+        vgic->dist.enable_set0[vcpu_id] &= ~IRQ_BIT(irq);
+        vgic->dist.enable_clr0[vcpu_id] &= ~IRQ_BIT(irq);
     }
 }
 
 static inline void set_spi_enable(vgic_t *vgic, int irq, bool set_enable)
 {
     if (set_enable) {
-        vgic->dist->enable_set[IRQ_IDX(irq)] |= IRQ_BIT(irq);
-        vgic->dist->enable_clr[IRQ_IDX(irq)] |= IRQ_BIT(irq);
+        vgic->dist.enable_set[IRQ_IDX(irq)] |= IRQ_BIT(irq);
+        vgic->dist.enable_clr[IRQ_IDX(irq)] |= IRQ_BIT(irq);
     } else {
-        vgic->dist->enable_set[IRQ_IDX(irq)] &= ~IRQ_BIT(irq);
-        vgic->dist->enable_clr[IRQ_IDX(irq)] &= ~IRQ_BIT(irq);
+        vgic->dist.enable_set[IRQ_IDX(irq)] &= ~IRQ_BIT(irq);
+        vgic->dist.enable_clr[IRQ_IDX(irq)] &= ~IRQ_BIT(irq);
     }
 }
 
@@ -422,12 +422,12 @@ static inline void set_enable(vgic_t *vgic, int irq, bool set_enable, int vcpu_i
 
 static inline bool is_sgi_ppi_enabled(vgic_t *vgic, int irq, int vcpu_id)
 {
-    return !!(vgic->dist->enable_set0[vcpu_id] & IRQ_BIT(irq));
+    return !!(vgic->dist.enable_set0[vcpu_id] & IRQ_BIT(irq));
 }
 
 static inline bool is_spi_enabled(vgic_t *vgic, int irq)
 {
-    return !!(vgic->dist->enable_set[IRQ_IDX(irq)] & IRQ_BIT(irq));
+    return !!(vgic->dist.enable_set[IRQ_IDX(irq)] & IRQ_BIT(irq));
 }
 
 static inline bool is_enabled(vgic_t *vgic, int irq, int vcpu_id)
@@ -440,12 +440,12 @@ static inline bool is_enabled(vgic_t *vgic, int irq, int vcpu_id)
 
 static inline bool is_sgi_ppi_active(vgic_t *vgic, int irq, int vcpu_id)
 {
-    return !!(vgic->dist->active0[vcpu_id] & IRQ_BIT(irq));
+    return !!(vgic->dist.active0[vcpu_id] & IRQ_BIT(irq));
 }
 
 static inline bool is_spi_active(vgic_t *vgic, int irq)
 {
-    return !!(vgic->dist->active[IRQ_IDX(irq)] & IRQ_BIT(irq));
+    return !!(vgic->dist.active[IRQ_IDX(irq)] & IRQ_BIT(irq));
 }
 
 static inline bool is_active(vgic_t *vgic, int irq, int vcpu_id)
@@ -551,7 +551,6 @@ int handle_vgic_maintenance(vm_vcpu_t *vcpu, int idx)
 static void vgic_dist_enable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 {
     assert(vgic);
-    assert(vgic->dist);
     DDIST("enabling irq %d\n", irq);
     set_enable(vgic, irq, true, vcpu->vcpu_id);
     struct virq_handle *virq_data = virq_find_irq_data(vgic, vcpu, irq);
@@ -568,7 +567,6 @@ static void vgic_dist_enable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 static void vgic_dist_disable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 {
     assert(vgic);
-    assert(vgic->dist);
 
     /* STATE g)
      *
@@ -587,7 +585,6 @@ static void vgic_dist_disable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 {
     assert(vgic);
-    assert(vgic->dist);
 
     /* STATE c) */
 
@@ -632,7 +629,6 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 static int vgic_dist_clr_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 {
     assert(vgic);
-    assert(vgic->dist);
 
     DDIST("clr pending irq %d\n", irq);
     set_pending(vgic, irq, false, vcpu->vcpu_id);
@@ -645,8 +641,7 @@ static memory_fault_result_t vgic_dist_reg_read(vgic_t *vgic, vm_vcpu_t *vcpu,
 {
     int err = 0;
     fault_t *fault = vcpu->vcpu_arch.fault;
-    assert(vgic->dist);
-    struct gic_dist_map *gic_dist = vgic->dist;
+    struct gic_dist_map *gic_dist = &(vgic->dist);
     uint32_t reg = 0;
     int reg_offset = 0;
     uintptr_t base_reg;
@@ -802,8 +797,7 @@ static memory_fault_result_t vgic_dist_reg_write(vgic_t *vgic, vm_vcpu_t *vcpu,
 {
     int err = 0;
     fault_t *fault = vcpu->vcpu_arch.fault;
-    assert(vgic->dist);
-    struct gic_dist_map *gic_dist = vgic->dist;
+    struct gic_dist_map *gic_dist = &(vgic->dist);
     uint32_t reg = 0;
     uint32_t mask = fault_get_data_mask(fault);
     uint32_t reg_offset = 0;
@@ -980,7 +974,6 @@ static memory_fault_result_t handle_vgic_dist_fault(vm_t *vm, vm_vcpu_t *vcpu, u
 
     assert(cookie);
     vgic_t *vgic = (typeof(vgic))cookie;
-    assert(vgic->dist);
 
     seL4_Word addr = fault_get_address(fault);
     assert(addr >= vgic->mapped_dist.paddr);
@@ -993,7 +986,7 @@ static memory_fault_result_t handle_vgic_dist_fault(vm_t *vm, vm_vcpu_t *vcpu, u
 
 static void vgic_dist_reset(vgic_t *vgic)
 {
-    struct gic_dist_map *gic_dist = vgic->dist;
+    struct gic_dist_map *gic_dist = &(vgic->dist);
     memset(gic_dist, 0, sizeof(*gic_dist));
     gic_dist->ic_type         = 0x0000fce7; /* RO */
     gic_dist->dist_ident      = 0x0200043b; /* RO */
@@ -1141,12 +1134,6 @@ int vm_install_vgic(vm_t *vm)
     /* vgic doesn't require much further initialization, having all fields set
      * to zero is fine.
      */
-    vgic->dist = calloc(1, sizeof(*(vgic->dist)));
-    if (!vgic->dist) {
-        assert(!"Unable to calloc memory for distributor");
-        free(vgic);
-        return -1;
-    }
     vgic_dist_reset(vgic);
 
     vgic->mapped_dist.paddr = GIC_DIST_PADDR;
@@ -1168,7 +1155,6 @@ int vm_install_vgic(vm_t *vm)
     int err = vm_map_reservation(vm, vgic->mapped_cpu_if.vm_res,
                                  vgic_vcpu_iterator, (void *)vm);
     if (err) {
-        free(vgic->dist);
         free(vgic);
         return -1;
     }
