@@ -235,6 +235,11 @@ static vgic_vcpu_t *get_vgic_vcpu(vgic_t *vgic, int vcpu_id)
     return &(vgic->vgic_vcpu[vcpu_id]);
 }
 
+static bool gic_dist_is_enabled(vgic_t *vgic)
+{
+    return (0 != vgic->dist->enable);
+}
+
 static void vgic_dist_set_ctlr(vgic_t *vgic, uint32_t data)
 {
     switch (data) {
@@ -585,7 +590,7 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 
     struct virq_handle *virq_data = virq_find_irq_data(vgic, vcpu, irq);
 
-    if (!virq_data || !vgic->dist->enable || !is_enabled(vgic->dist, irq, vcpu->vcpu_id)) {
+    if (!virq_data || !gic_dist_is_enabled(vgic) || !is_enabled(vgic->dist, irq, vcpu->vcpu_id)) {
         DDIST("IRQ not enabled (%d) on vcpu %d\n", irq, vcpu->vcpu_id);
         return -1;
     }
