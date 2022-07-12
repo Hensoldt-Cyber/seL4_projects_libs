@@ -228,6 +228,14 @@ typedef struct vgic {
 
 static struct vgic_dist_device *vgic_dist;
 
+static vgic_t *get_vgic_from_vm(vm_t *vm)
+{
+    assert(vm);
+    vgic_t *vgic = (typeof(vgic))(vm->arch.vgic_context);
+    assert(vgic);
+    return vgic;
+}
+
 static vgic_vcpu_t *get_vgic_vcpu(vgic_t *vgic, int vcpu_id)
 {
     assert(vgic);
@@ -524,9 +532,8 @@ static int vgic_vcpu_load_list_reg(vgic_t *vgic, vm_vcpu_t *vcpu, int idx, struc
 int handle_vgic_maintenance(vm_vcpu_t *vcpu, int idx)
 {
     /* STATE d) */
-    assert(vgic_dist);
-    struct gic_dist_map *gic_dist = vgic_priv_get_dist(vgic_dist);
-    vgic_t *vgic = vgic_device_get_vgic(vgic_dist);
+    assert(vcpu);
+    vgic_t *vgic = get_vgic_from_vm(vcpu->vm);
     assert(vgic);
     vgic_vcpu_t *vgic_vcpu = get_vgic_vcpu(vgic, vcpu->vcpu_id);
     assert(vgic_vcpu);
@@ -1049,7 +1056,8 @@ static void vgic_dist_reset(vgic_t *vgic)
 
 int vm_register_irq(vm_vcpu_t *vcpu, int irq, irq_ack_fn_t ack_fn, void *cookie)
 {
-    struct vgic *vgic = vgic_device_get_vgic(vgic_dist);
+    assert(vcpu);
+    vgic_t *vgic = get_vgic_from_vm(vcpu->vm);
     assert(vgic);
 
     struct virq_handle *virq_data = calloc(1, sizeof(*virq_data));
@@ -1072,7 +1080,8 @@ int vm_inject_irq(vm_vcpu_t *vcpu, int irq)
 {
     // vm->lock();
 
-    struct vgic *vgic = vgic_device_get_vgic(vgic_dist);
+    assert(vcpu);
+    vgic_t *vgic = get_vgic_from_vm(vcpu->vm);
     assert(vgic);
 
     DIRQ("VM received IRQ %d\n", irq);
@@ -1130,7 +1139,10 @@ static vm_frame_t vgic_vcpu_iterator(uintptr_t addr, void *cookie)
  */
 int vm_install_vgic(vm_t *vm)
 {
-    struct vgic *vgic = calloc(1, sizeof(*vgic));
+    /* VM should not have a vgic already. */
+    assert(!vm->arch.vgic_context);
+
+    vgic_t *vgic = calloc(1, sizeof(*vgic));
     if (!vgic) {
         assert(!"Unable to calloc memory for VGIC");
         return -1;
@@ -1164,6 +1176,8 @@ int vm_install_vgic(vm_t *vm)
         free(vgic_dist->priv);
         return -1;
     }
+
+    vm->arch.vgic_context = vgic;
 
     return 0;
 }
