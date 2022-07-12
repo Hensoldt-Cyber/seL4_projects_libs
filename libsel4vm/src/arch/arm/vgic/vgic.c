@@ -136,9 +136,9 @@ static inline void virq_ack(vm_vcpu_t *vcpu, struct virq_handle *irq)
 
 /* Memory map for GIC distributor */
 struct gic_dist_map {
-    uint32_t enable;                                    /* 0x000 */
-    uint32_t ic_type;                                   /* 0x004 */
-    uint32_t dist_ident;                                /* 0x008 */
+    uint32_t ctlr;                                      /* 0x000 */
+    uint32_t typer;                                     /* 0x004 */
+    uint32_t iidr;                                      /* 0x008 */
 
     uint32_t res1[29];                                  /* [0x00C, 0x080) */
 
@@ -175,7 +175,7 @@ struct gic_dist_map {
     uint32_t enable_d;                                  /* 0xDE4 */
     uint32_t res8[70];                                  /* [0xDE8, 0xF00) */
 
-    uint32_t sgi_control;                               /* 0xF00 */
+    uint32_t sgir;                                      /* 0xF00 */
     uint32_t res9[3];                                   /* [0xF04, 0xF10) */
 
     uint32_t sgi_pending_clr[CONFIG_MAX_NUM_NODES][4];  /* [0xF10, 0xF20) */
@@ -251,7 +251,7 @@ static vgic_vcpu_t *get_vgic_vcpu(vgic_t *vgic, int vcpu_id)
 
 static bool gic_dist_is_enabled(vgic_t *vgic)
 {
-    return (0 != vgic->dist.enable);
+    return (0 != vgic->dist.ctlr);
 }
 
 static void vgic_dist_set_ctlr(vgic_t *vgic, uint32_t data)
@@ -259,11 +259,11 @@ static void vgic_dist_set_ctlr(vgic_t *vgic, uint32_t data)
     switch (data) {
     case 0:
         DDIST("disabling gic distributor\n");
-        vgic->dist.enable = 0;
+        vgic->dist.ctlr = 0;
         break;
     case 1:
         DDIST("enabling gic distributor\n");
-        vgic->dist.enable = 1;
+        vgic->dist.ctlr = 1;
         break;
     default:
         ZF_LOGE("Unknown dist ctlr encoding 0x%x", data);
@@ -648,13 +648,13 @@ static memory_fault_result_t vgic_dist_reg_read(vgic_t *vgic, vm_vcpu_t *vcpu,
     uint32_t *reg_ptr;
     switch (offset) {
     case RANGE32(GIC_DIST_CTLR, GIC_DIST_CTLR):
-        reg = gic_dist->enable;
+        reg = gic_dist->ctlr;
         break;
     case RANGE32(GIC_DIST_TYPER, GIC_DIST_TYPER):
-        reg = gic_dist->ic_type;
+        reg = gic_dist->typer;
         break;
     case RANGE32(GIC_DIST_IIDR, GIC_DIST_IIDR):
-        reg = gic_dist->dist_ident;
+        reg = gic_dist->iidr;
         break;
     case RANGE32(0x00C, 0x01C):
         /* Reserved */
@@ -750,7 +750,7 @@ static memory_fault_result_t vgic_dist_reg_read(vgic_t *vgic, vm_vcpu_t *vcpu,
         /* GIC_DIST_NSACR [0xE00 - 0xF00) - Not supported */
         break;
     case RANGE32(GIC_DIST_SGIR, GIC_DIST_SGIR):
-        reg = gic_dist->sgi_control;
+        reg = gic_dist->sgir;
         break;
     case RANGE32(0xF04, 0xF0C):
         /* Implementation defined */
@@ -988,8 +988,8 @@ static void vgic_dist_reset(vgic_t *vgic)
 {
     struct gic_dist_map *gic_dist = &(vgic->dist);
     memset(gic_dist, 0, sizeof(*gic_dist));
-    gic_dist->ic_type         = 0x0000fce7; /* RO */
-    gic_dist->dist_ident      = 0x0200043b; /* RO */
+    gic_dist->typer = 0x0000fce7; /* RO */
+    gic_dist->iidr  = 0x0200043b; /* RO */
 
     for (int i = 0; i < CONFIG_MAX_NUM_NODES; i++) {
         gic_dist->enable_set0[i]   = 0x0000ffff; /* 16bit RO */
