@@ -88,7 +88,7 @@ static inline vgic_vcpu_t *get_vgic_vcpu(vgic_t *vgic, int vcpu_id)
     return &(vgic->vgic_vcpu[vcpu_id]);
 }
 
-static inline struct virq_handle *virq_find_irq_data(struct vgic *vgic, vm_vcpu_t *vcpu, int virq)
+static inline struct virq_handle *virq_find(struct vgic *vgic, vm_vcpu_t *vcpu, int virq)
 {
     assert(vgic);
     assert(vcpu);

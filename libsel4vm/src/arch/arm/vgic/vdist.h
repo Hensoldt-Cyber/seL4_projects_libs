@@ -150,11 +150,11 @@ static void vgic_dist_enable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
     assert(vgic->dist);
     DDIST("enabling irq %d\n", irq);
     set_enable(vgic->dist, irq, true, vcpu->vcpu_id);
-    struct virq_handle *virq_data = virq_find_irq_data(vgic, vcpu, irq);
+    struct virq_handle *virq = virq_find(vgic, vcpu, irq);
     if (virq_data) {
         /* STATE b) */
-        if (!is_pending(vgic->dist, virq_data->virq, vcpu->vcpu_id)) {
-            virq_ack(vcpu, virq_data);
+        if (!is_pending(vgic->dist, virq->virq, vcpu->vcpu_id)) {
+            virq_ack(vcpu, virq);
         }
     } else {
         DDIST("enabled irq %d has no handle\n", irq);
@@ -187,24 +187,24 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 
     /* STATE c) */
 
-    struct virq_handle *virq_data = virq_find_irq_data(vgic, vcpu, irq);
+    struct virq_handle *virq = virq_find(vgic, vcpu, irq);
 
     if (!virq_data || !gic_dist_is_enabled(vgic) || !is_enabled(vgic->dist, irq, vcpu->vcpu_id)) {
         DDIST("IRQ not enabled (%d) on vcpu %d\n", irq, vcpu->vcpu_id);
         return -1;
     }
 
-    if (is_pending(vgic->dist, virq_data->virq, vcpu->vcpu_id)) {
+    if (is_pending(vgic->dist, virq->virq, vcpu->vcpu_id)) {
         return 0;
     }
 
     DDIST("Pending set: Inject IRQ from pending set (%d)\n", irq);
-    set_pending(vgic->dist, virq_data->virq, true, vcpu->vcpu_id);
+    set_pending(vgic->dist, virq->virq, true, vcpu->vcpu_id);
 
     /* Enqueueing an IRQ and dequeueing it right after makes little sense
      * now, but in the future this is needed to support IRQ priorities.
      */
-    int err = vgic_irq_enqueue(vgic, vcpu, virq_data);
+    int err = vgic_irq_enqueue(vgic, vcpu, virq);
     if (err) {
         ZF_LOGF("Failure enqueueing IRQ, increase MAX_IRQ_QUEUE_LEN");
         return -1;
@@ -219,7 +219,7 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
         return 0;
     }
 
-    struct virq_handle *virq = vgic_irq_dequeue(vgic, vcpu);
+    virq = vgic_irq_dequeue(vgic, vcpu);
     assert(virq);
 
     return vgic_vcpu_load_list_reg(vgic, vcpu, idx, 0, virq);
