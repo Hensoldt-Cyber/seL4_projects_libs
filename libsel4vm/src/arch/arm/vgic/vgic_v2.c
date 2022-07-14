@@ -128,20 +128,8 @@ int vm_register_irq(vm_vcpu_t *vcpu, int irq, irq_ack_fn_t ack_fn, void *cookie)
     struct vgic *vgic = vgic_dist->vgic;
     assert(vgic);
 
-    struct virq_handle *virq_data = calloc(1, sizeof(*virq_data));
-    if (!virq_data) {
-        return -1;
-    }
-
-    virq_init(virq_data, irq, ack_fn, cookie);
-
-    int err = virq_add(vcpu, vgic, virq_data);
-    if (err) {
-        free(virq_data);
-        return -1;
-    }
-
-    return 0;
+    DIRQ("VM register IRQ %d\n", irq);
+    return virq_register(vcpu, vgic, irq, ack_fn, cookie);
 }
 
 int vm_inject_irq(vm_vcpu_t *vcpu, int irq)

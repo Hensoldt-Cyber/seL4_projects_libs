@@ -114,39 +114,58 @@ static inline struct virq_handle *virq_find_irq_data(struct vgic *vgic, vm_vcpu_
     return virq_find_spi_irq_data(vgic, virq);
 }
 
-static inline int virq_spi_add(vgic_t *vgic, struct virq_handle *virq_data)
+static inline int virq_register(vm_vcpu_t *vcpu, vgic_t *vgic, int irq,
+                                irq_ack_fn_t ack_fn, void *token)
 {
-    for (int i = 0; i < ARRAY_SIZE(vgic->vspis); i++) {
-        if (vgic->vspis[i] == NULL) {
-            vgic->vspis[i] = virq_data;
-            return 0;
-        }
-    }
-    return -1;
-}
+    assert(vgic);
+    assert(vcpu);
+    assert(irq >= 0);
 
-static inline int virq_sgi_ppi_add(vm_vcpu_t *vcpu, vgic_t *vgic, struct virq_handle *virq_data)
-{
     vgic_vcpu_t *vgic_vcpu = get_vgic_vcpu(vgic, vcpu->vcpu_id);
     assert(vgic_vcpu);
-    int irq = virq_data->virq;
-    assert((irq >= 0) && (irq < ARRAY_SIZE(vgic_vcpu->local_virqs)));
-    virq_handle_t *slot = &vgic_vcpu->local_virqs[irq];
-    if (*slot != NULL) {
-        ZF_LOGE("IRQ %d already registered on VCPU %u", virq_data->virq, vcpu->vcpu_id);
+
+    /* Find a slot for the virq to be created */
+    struct virq_handle **slot = NULL;
+    if (irq < ARRAY_SIZE(vgic_vcpu->local_virqs)) {
+        /* Add a local interrupt (SGI, PPI). */
+        slot = &vgic_vcpu->local_virqs[irq];
+        if (NULL != *slot) {
+            ZF_LOGE("IRQ %d already registered as SGI/PPI on VCPU %u",
+                    irq, vcpu->vcpu_id);
+            return -1;
+        }
+    } else {
+        /* Find a free slot to register a global interrupt (SPI). */
+        for (int i = 0; i < ARRAY_SIZE(vgic->vspis); i++) {
+            slot = &vgic->vspis[i];
+            if (NULL == *slot) {
+                break;
+            }
+        }
+        if (NULL == slot) {
+            ZF_LOGE("NUM_SLOTS_SPI_VIRQ exceeded, can't register IRQ %d as SPI",
+                    irq);
+            return -1;
+        }
+    }
+
+    assert(NULL != slot); /* There must be a valid slot here. */
+
+    /* Allocate and initialize new virq. */
+    struct virq_handle *virq = (typeof(virq))calloc(1, sizeof(*virq));
+    if (!virq) {
+        ZF_LOGE("virq allocation failed for IRQ %d", irq);
         return -1;
     }
-    *slot = virq_data;
-    return 0;
-}
+    *virq = (typeof(*virq)) {
+        .virq  = irq,
+        .token = cookie,
+        .ack   = ack_fn
+    };
+    /* Add virq to slot. */
+    *slot = virq;
 
-static inline int virq_add(vm_vcpu_t *vcpu, vgic_t *vgic, struct virq_handle *virq_data)
-{
-    int virq = virq_data->virq;
-    if (virq < NUM_VCPU_LOCAL_VIRQS) {
-        return virq_sgi_ppi_add(vcpu, vgic, virq_data);
-    }
-    return virq_spi_add(vgic, virq_data);
+    return 0;
 }
 
 static inline void virq_init(virq_handle_t virq, int irq, irq_ack_fn_t ack_fn, void *token)
