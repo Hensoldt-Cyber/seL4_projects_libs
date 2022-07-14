@@ -68,36 +68,6 @@ static inline struct gic_dist_map *vgic_priv_get_dist(struct vgic_dist_device *d
     return d->vgic->dist;
 }
 
-
-int handle_vgic_maintenance(vm_vcpu_t *vcpu, int idx)
-{
-    /* STATE d) */
-    assert(vgic_dist);
-    struct gic_dist_map *gic_dist = vgic_priv_get_dist(vgic_dist);
-    vgic_t *vgic = vgic_dist->vgic;
-    assert(vgic);
-    vgic_vcpu_t *vgic_vcpu = get_vgic_vcpu(vgic, vcpu->vcpu_id);
-    assert(vgic_vcpu);
-    assert((idx >= 0) && (idx < ARRAY_SIZE(vgic_vcpu->lr_shadow)));
-    virq_handle_t *slot = &vgic_vcpu->lr_shadow[idx];
-    assert(*slot);
-    virq_handle_t lr_virq = *slot;
-    *slot = NULL;
-    /* Clear pending */
-    DIRQ("Maintenance IRQ %d\n", lr_virq->virq);
-    set_pending(gic_dist, lr_virq->virq, false, vcpu->vcpu_id);
-    virq_ack(vcpu, lr_virq);
-
-    /* Check the overflow list for pending IRQs */
-    struct virq_handle *virq = vgic_irq_dequeue(vgic, vcpu);
-    if (virq) {
-        return vgic_vcpu_load_list_reg(vgic, vcpu, idx, 0, virq);
-    }
-
-    return 0;
-}
-
-
 static void vgic_dist_reset(struct vgic_dist_device *d)
 {
     struct gic_dist_map *gic_dist;
@@ -280,14 +250,41 @@ int vm_vgic_maintenance_handler(vm_vcpu_t *vcpu)
     /* Currently not handling spurious IRQs */
     assert(idx >= 0);
 
-    int err = handle_vgic_maintenance(vcpu, idx);
-    if (!err) {
-        seL4_MessageInfo_t reply;
-        reply = seL4_MessageInfo_new(0, 0, 0, 0);
-        seL4_Reply(reply);
+    /* STATE d) */
+    assert(vgic_dist);
+    struct gic_dist_map *gic_dist = vgic_priv_get_dist(vgic_dist);
+    vgic_t *vgic = vgic_dist->vgic;
+    assert(vgic);
+    vgic_vcpu_t *vgic_vcpu = get_vgic_vcpu(vgic, vcpu->vcpu_id);
+    assert(vgic_vcpu);
+    assert(idx < ARRAY_SIZE(vgic_vcpu->lr_shadow));
+    virq_handle_t *slot = &vgic_vcpu->lr_shadow[idx];
+    virq_handle_t lr_virq = *slot;
+    if (!lr_virq) {
+        ZF_LOGE("maintenance attempt on empty LR[%d]", idx);
+        /* Don't take this as fatal error, we would have cleared the slot
+         * anyway. Seems our view of the LR slots got out of sync somehow.
+         */
     } else {
-        ZF_LOGF("vGIC maintenance handler failed (error %d)", err);
+        /* Clear slot */
+        *slot = NULL;
+        DIRQ("Maintenance IRQ %d from LR[%d]\n", lr_virq->virq, idx);
+        /* Clear pending */
+        set_pending(gic_dist, lr_virq->virq, false, vcpu->vcpu_id);
+        virq_ack(vcpu, lr_virq);
     }
+    /* Check the overflow list for pending IRQs */
+    virq_handle_t virq = vgic_irq_dequeue(vgic, vcpu);
+    if (virq) {
+        int err = vgic_vcpu_load_list_reg(vgic, vcpu, idx, virq);
+        if (err) {
+            ZF_LOGE("vGIC maintenance failed re-filling LR[%d] with IRQ %d, error %d",
+                    idx, virq->virq, err);
+            return VM_EXIT_HANDLE_ERROR;
+        }
+    }
+
+    seL4_Reply(seL4_MessageInfo_new(0, 0, 0, 0));
     return VM_EXIT_HANDLED;
 }
 
