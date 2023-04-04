@@ -170,7 +170,7 @@ static int vgic_dist_enable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
     set_enable(vgic->dist, irq, true, vcpu->vcpu_id);
     struct virq_handle *virq_data = virq_find_irq_data(vgic, vcpu, irq);
     if (!virq_data) {
-        DDIST("enabled irq %d has no handle\n", irq);
+        // ZF_LOGF("enabled irq %d has no handle\n", irq);
         return -1;
     }
 
@@ -214,7 +214,7 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
     struct virq_handle *virq_data = virq_find_irq_data(vgic, vcpu, irq);
 
     if (!virq_data || !vgic->dist->enable || !is_enabled(vgic->dist, irq, vcpu->vcpu_id)) {
-        DDIST("IRQ not enabled (%d) on vcpu %d\n", irq, vcpu->vcpu_id);
+        ZF_LOGF("IRQ not enabled (%d) on vcpu %d\n", irq, vcpu->vcpu_id);
         return -1;
     }
 
@@ -240,6 +240,7 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
          * deal -- we have already enqueued this IRQ and eventually the vGIC
          * maintenance code will load it to a list register from the queue.
          */
+        ZF_LOGW("No empty list reg for irq %d", irq);
         return -1;
     }
 
@@ -442,8 +443,12 @@ static inline void emulate_reg_write_irq_bits(vgic_t *vgic, vm_vcpu_t *vcpu,
         unsigned int bit = CTZ(data);
         data &= ~(1U << bit);
         int irq = irq_base + bit;
-        /* ignore error, there is nothing we can do */
-        (void)irq_func(vgic, vcpu, irq);
+        ZF_LOGI("operation on interrupt %d", irq);
+        int err = irq_func(vgic, vcpu, irq);
+        if (err) {
+            /* ignore error, there is nothing we can do */
+            ZF_LOGW("operation on interrupt %d failed", irq);
+        }
     }
 }
 
