@@ -175,40 +175,6 @@ static int load_image(vm_t *vm, const char *image_name, uintptr_t load_addr,  si
     return 0;
 }
 
-static uintptr_t load_guest_kernel_image(vm_t *vm, const char *kernel_image_name, uintptr_t load_base_addr,
-                                         size_t *image_size)
-{
-    int err;
-    uintptr_t load_addr;
-    enum img_type ret_file_type;
-    Elf64_Ehdr header = {0};
-    err = get_guest_image_type(kernel_image_name, &ret_file_type, &header);
-    if (err) {
-        return 0;
-    }
-    /* Determine the load address */
-    switch (ret_file_type) {
-    case IMG_BIN:
-        load_addr = load_base_addr;
-        break;
-    case IMG_ZIMAGE:
-        /* zImage is used for 32-bit Linux kernels only. */
-        load_addr = ((struct zimage_hdr *)(&header))->start;
-        if (0 == load_addr) {
-            load_addr = load_base_addr;
-        }
-        break;
-    default:
-        ZF_LOGE("Error: Unknown kernel image format for '%s'", kernel_image_name);
-        return 0;
-    }
-    err = load_image(vm, kernel_image_name, load_addr, image_size);
-    if (err) {
-        return 0;
-    }
-    return load_addr;
-}
-
 static uintptr_t load_guest_module_image(vm_t *vm, const char *image_name, uintptr_t load_base_addr, size_t *image_size)
 {
     int err;
@@ -239,16 +205,48 @@ static uintptr_t load_guest_module_image(vm_t *vm, const char *image_name, uintp
 int vm_load_guest_kernel(vm_t *vm, const char *kernel_name, uintptr_t load_address, size_t alignment,
                          guest_kernel_image_t *guest_kernel_image)
 {
-    uintptr_t load_addr;
-    size_t kernel_len;
+    int err;
+
     if (!guest_kernel_image) {
         ZF_LOGE("Invalid guest_image_t object");
         return -1;
     }
-    load_addr = load_guest_kernel_image(vm, kernel_name, load_address, &kernel_len);
-    if (0 == load_addr) {
+
+    enum img_type ret_file_type;
+    Elf64_Ehdr header = {0};
+    err = get_guest_image_type(kernel_name, &ret_file_type, &header);
+    if (err) {
+        ZF_LOGE("Failed to get kernel image type for \'%s\' (%d)",
+                kernel_name, err);
         return -1;
     }
+
+    /* Determine the load address */
+    switch (ret_file_type) {
+    case IMG_BIN:
+        // use load_addr
+        break;
+    case IMG_ZIMAGE:
+        /* zImage is used for 32-bit Linux kernels only. */
+        {
+            uintptr_t start_addr = ((struct zimage_hdr *)(&header))->start;
+            if (0 != start_addr) {
+                load_addr = start_addr;
+            }
+        }
+        break;
+    default:
+        ZF_LOGE("UNsupported kernel image format for \'%s\'", kernel_name);
+        return -1;
+    }
+
+    size_t kernel_len = 0
+    int err = load_image(vm, kernel_name, load_addr, &kernel_len);
+    if (err) {
+        ZF_LOGE("Failed to load kernel image \'%s\'", kernel_name");
+        return -1;
+    }
+
     guest_kernel_image->kernel_image.load_paddr = load_addr;
     guest_kernel_image->kernel_image.size = kernel_len;
     return 0;
