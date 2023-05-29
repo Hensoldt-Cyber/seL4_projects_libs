@@ -20,7 +20,7 @@
 
 #define MAX_ACPI_TABLES (2)
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 /***
  * @function make_guest_acpi_tables(vm)

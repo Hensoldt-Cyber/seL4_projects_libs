@@ -12,7 +12,7 @@
 
 #include <sel4/sel4.h>
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 /***
  * @function vcpu_set_bootargs(vcpu, pc, mach_type, atags)

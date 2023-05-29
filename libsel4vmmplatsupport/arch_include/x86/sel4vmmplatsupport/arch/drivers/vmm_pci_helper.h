@@ -9,7 +9,7 @@
  * The interface presents a series of helpers for establishing VMM PCI support on x86 platforms.
  */
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vm/arch/ioports.h>
 #include <sel4vmmplatsupport/drivers/pci_helper.h>
 

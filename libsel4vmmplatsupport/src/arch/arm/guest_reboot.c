@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #include <sel4utils/util.h>
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 #include <sel4vmmplatsupport/arch/guest_reboot.h>
 

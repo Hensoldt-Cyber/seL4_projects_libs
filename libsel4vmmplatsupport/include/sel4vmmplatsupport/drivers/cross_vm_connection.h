@@ -13,7 +13,7 @@
  * processes can access them from userlevel. This being facilitated over a virtual PCI device.
  */
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 #include <sel4vmmplatsupport/drivers/virtio.h>
 #include <sel4vmmplatsupport/drivers/pci_helper.h>

@@ -13,7 +13,7 @@
  * virtual pci device.
  */
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vmmplatsupport/plat/vpci.h>
 
 /* Mask to retrieve PCI bar size */

@@ -8,7 +8,7 @@
 #include <vka/object.h>
 #include <vka/capops.h>
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vmmplatsupport/arch/service.h>
 
 int vmm_install_service(vm_t *vm, seL4_CPtr service, int index, uint32_t b)

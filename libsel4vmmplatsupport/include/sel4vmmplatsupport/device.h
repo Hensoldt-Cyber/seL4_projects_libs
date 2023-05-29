@@ -12,7 +12,7 @@
  */
 
 #include <stdint.h>
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 /***
  * @struct device

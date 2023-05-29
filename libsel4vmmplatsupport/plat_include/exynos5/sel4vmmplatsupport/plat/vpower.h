@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 typedef int (*vm_power_cb)(vm_t *vm, void *token);
 int vm_install_vpower(vm_t *vm, vm_power_cb shutdown_cb, void *shutdown_token,

@@ -11,7 +11,7 @@
  * The guest vcpu util interface provides abstractions and helpers for managing libsel4vm vcpus.
  */
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vmmplatsupport/arch/guest_vcpu_util.h>
 
 /***

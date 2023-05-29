@@ -12,7 +12,7 @@
  * This interface probably stops being relevant/useful after we start running a VM instance.
  */
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vmmplatsupport/arch/guest_image_arch.h>
 
 typedef struct guest_kernel_image_arch guest_kernel_image_arch_t;

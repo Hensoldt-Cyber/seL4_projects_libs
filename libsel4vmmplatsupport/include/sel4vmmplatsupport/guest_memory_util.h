@@ -10,7 +10,7 @@
  * interface. The methods in the interface cover common usage patterns when managing memory for a VM instance.
  */
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vm/guest_memory.h>
 
 /***

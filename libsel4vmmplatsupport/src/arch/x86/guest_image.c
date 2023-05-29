@@ -15,7 +15,7 @@
 
 #include <sel4vmmplatsupport/guest_image.h>
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vm/guest_memory.h>
 #include <sel4vm/guest_ram.h>
 

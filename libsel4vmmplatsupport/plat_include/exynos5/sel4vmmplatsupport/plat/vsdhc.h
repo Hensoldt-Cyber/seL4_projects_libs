@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 const struct device dev_msh0;
 const struct device dev_msh2;

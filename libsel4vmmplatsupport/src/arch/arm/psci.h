@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 /* Values in this file are taken from the:
  * ARM Power State Coordination Interface
