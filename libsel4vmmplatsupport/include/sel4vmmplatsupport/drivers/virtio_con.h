@@ -12,7 +12,7 @@
  * PCI device in the VM's virtual pci. This can subsequently be accessed through '/dev/hvc0' in the guest.
  */
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 #include <sel4vmmplatsupport/ioports.h>
 #include <sel4vmmplatsupport/drivers/pci.h>

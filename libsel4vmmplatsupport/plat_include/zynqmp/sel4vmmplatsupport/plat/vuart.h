@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 extern const struct device dev_uart0;
 extern const struct device dev_uart1;

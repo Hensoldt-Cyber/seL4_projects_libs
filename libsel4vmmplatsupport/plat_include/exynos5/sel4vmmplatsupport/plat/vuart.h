@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 #define dev_vconsole dev_uart2
 extern const struct device dev_uart0;

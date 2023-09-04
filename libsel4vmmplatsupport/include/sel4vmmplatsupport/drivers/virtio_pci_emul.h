@@ -13,7 +13,7 @@
 #include <satadrivers/raw.h>
 #include <sel4vmmplatsupport/drivers/virtio_pci_console.h>
 #include <sel4vmmplatsupport/drivers/virtio_pci_vsock.h>
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <virtio/virtio_ring.h>
 #include <virtio/virtio_pci.h>
 #include <virtio/virtio_net.h>

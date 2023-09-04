@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sel4/types.h>
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vm/guest_memory.h>
 
 #include <sel4vmmplatsupport/guest_memory_util.h>

@@ -8,13 +8,13 @@
 //#define DEBUG_DIST
 
 #ifdef DEBUG_IRQ
-#define DIRQ(...) do{ printf("VDIST: "); printf(__VA_ARGS__); }while(0)
+#define DIRQ(...) ZF_LOGI("VDIST: " __VA_ARGS__)
 #else
 #define DIRQ(...) do{}while(0)
 #endif
 
 #ifdef DEBUG_DIST
-#define DDIST(...) do{ printf("VDIST: "); printf(__VA_ARGS__); }while(0)
+#define DDIST(...) ZF_LOGI("VDIST: " __VA_ARGS__)
 #else
 #define DDIST(...) do{}while(0)
 #endif
@@ -148,7 +148,7 @@ static int vgic_dist_enable(vgic_t *vgic, vm_t *vm)
 {
     assert(vgic);
     assert(vgic->dist);
-    DDIST("enabling gic distributor\n");
+    DDIST("enabling gic distributor");
     vgic->dist->enable = 1;
     return 0;
 }
@@ -157,7 +157,7 @@ static int vgic_dist_disable(vgic_t *vgic, vm_t *vm)
 {
     assert(vgic);
     assert(vgic->dist);
-    DDIST("disabling gic distributor\n");
+    DDIST("disabling gic distributor");
     vgic->dist->enable = 0;
     return 0;
 }
@@ -166,7 +166,7 @@ static void vgic_dist_enable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
 {
     assert(vgic);
     assert(vgic->dist);
-    DDIST("enabling irq %d\n", irq);
+    DDIST("enabling irq %d", irq);
     set_enable(vgic->dist, irq, true, vcpu->vcpu_id);
     struct virq_handle *virq_data = virq_find_irq_data(vgic, vcpu, irq);
     if (virq_data) {
@@ -175,7 +175,7 @@ static void vgic_dist_enable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
             virq_ack(vcpu, virq_data);
         }
     } else {
-        DDIST("enabled irq %d has no handle\n", irq);
+        DDIST("enabled irq %d has no handle", irq);
     }
 }
 
@@ -193,7 +193,7 @@ static void vgic_dist_disable_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
      * here to avoid bloating the logs.
      */
     if (irq >= NUM_SGI_VIRQS) {
-        DDIST("disabling irq %d\n", irq);
+        DDIST("disabling irq %d", irq);
         set_enable(vgic->dist, irq, false, vcpu->vcpu_id);
     }
 }
@@ -208,7 +208,7 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
     struct virq_handle *virq_data = virq_find_irq_data(vgic, vcpu, irq);
 
     if (!virq_data || !vgic->dist->enable || !is_enabled(vgic->dist, irq, vcpu->vcpu_id)) {
-        DDIST("IRQ not enabled (%d) on vcpu %d\n", irq, vcpu->vcpu_id);
+        DDIST("IRQ not enabled (%d) on vcpu %d", irq, vcpu->vcpu_id);
         return -1;
     }
 
@@ -216,7 +216,7 @@ static int vgic_dist_set_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
         return 0;
     }
 
-    DDIST("Pending set: Inject IRQ from pending set (%d)\n", irq);
+    DDIST("Pending set: Inject IRQ from pending set (%d)", irq);
     set_pending(vgic->dist, virq_data->virq, true, vcpu->vcpu_id);
 
     /* Enqueueing an IRQ and dequeueing it right after makes little sense
@@ -248,7 +248,7 @@ static int vgic_dist_clr_pending_irq(vgic_t *vgic, vm_vcpu_t *vcpu, int irq)
     assert(vgic);
     assert(vgic->dist);
 
-    DDIST("clr pending irq %d\n", irq);
+    DDIST("clr pending irq %d", irq);
     set_pending(vgic->dist, irq, false, vcpu->vcpu_id);
     /* TODO: remove from IRQ queue and list registers as well */
     return 0;
@@ -359,10 +359,15 @@ static memory_fault_result_t vgic_dist_reg_read(vm_t *vm, vm_vcpu_t *vcpu,
         reg_offset = GIC_DIST_REGN(offset, GIC_DIST_ICFGR0);
         reg = gic_dist->config[reg_offset];
         break;
-    case RANGE32(0xD00, 0xDE4):
-        base_reg = (uintptr_t) & (gic_dist->spi[0]);
-        reg_ptr = (uint32_t *)(base_reg + (offset - 0xD00));
-        reg = *reg_ptr;
+    case RANGE32(0xD80, 0xDE4):
+        /* spi[32]      0xD00 - 0xD80 */
+        /* res5[20]     0xD80 - 0xDD0 */
+        /* res6         0xDD0 */
+        /* legacy_int   0xDD4 */
+        /* res7[2]      0xDD8 - 0xDE0 */
+        /* match_d      0xDE0 */
+        /* enable_d     0xDE4 */
+        reg = ((uint32_t*)gic_dist)[offset / sizeof(uint32_t)];
         break;
     case RANGE32(0xDE8, 0xEFC):
         /* Reserved [0xDE8 - 0xE00) */
@@ -386,9 +391,9 @@ static memory_fault_result_t vgic_dist_reg_read(vm_t *vm, vm_vcpu_t *vcpu,
         /* Reserved */
         break;
     case RANGE32(0xFC0, 0xFFB):
-        base_reg = (uintptr_t) & (gic_dist->periph_id[0]);
-        reg_ptr = (uint32_t *)(base_reg + (offset - 0xFC0));
-        reg = *reg_ptr;
+        /* periph_id[12]    0xFC0 - 0xFF0 */
+        /* component_id[4]  0xFF0 - 0xFFF */
+        reg = ((uint32_t*)gic_dist)[offset / sizeof(uint32_t)];
         break;
     default:
         ZF_LOGE("Unknown register offset 0x%x", offset);

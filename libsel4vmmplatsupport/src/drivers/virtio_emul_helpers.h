@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 int vm_guest_write_mem(vm_t *vm, void *data, uintptr_t address, size_t size);
 

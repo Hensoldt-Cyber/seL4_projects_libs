@@ -14,7 +14,7 @@
  * to a VM instance but limit their permissions with regards to modifying its register state.
  */
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 #include <sel4vmmplatsupport/device.h>
 

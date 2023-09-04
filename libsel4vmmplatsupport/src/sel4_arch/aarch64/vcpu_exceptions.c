@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vm/guest_vcpu_fault.h>
 #include <sel4vm/arch/processor.h>
 #include <sel4vm/arch/guest_arm_context.h>

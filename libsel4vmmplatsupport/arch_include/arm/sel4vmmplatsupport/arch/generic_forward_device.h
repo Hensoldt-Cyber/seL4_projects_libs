@@ -15,7 +15,7 @@
  */
 
 #include <stdint.h>
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 #include <sel4vmmplatsupport/device.h>
 
 typedef void (*forward_write_fn)(uint32_t addr, uint32_t value);

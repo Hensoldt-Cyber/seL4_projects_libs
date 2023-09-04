@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <sel4vm/guest_vm.h>
+#include <sel4vmmplatsupport/vm.h>
 
 static inline int unknown_vcpu_exception_handler(vm_vcpu_t *vcpu, uint32_t hsr)
 {
